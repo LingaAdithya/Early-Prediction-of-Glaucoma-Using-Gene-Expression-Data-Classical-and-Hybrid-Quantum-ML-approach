@@ -40,7 +40,6 @@ Both datasets are publicly available through the [NCBI Gene Expression Omnibus (
 | GSE138125 | [GSE138125](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE138125) | GPL21827 (Agilent) | 8 | 4 | 4 |
 | GSE27276 | [GSE27276](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE27276) | GPL2507 (Sentrix) | 36 | ~8 | ~28 |
 
-> **Note:** The two datasets originate from different microarray platforms with no overlapping probe identifiers. Cross-platform integration was performed by positional concatenation after variance-based probe sorting. This is a known limitation — see [Limitations](#limitations).
 
 To download the data:
 1. Visit the GEO links above
