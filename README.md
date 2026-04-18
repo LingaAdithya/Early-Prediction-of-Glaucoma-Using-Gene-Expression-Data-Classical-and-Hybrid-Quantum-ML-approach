@@ -1,169 +1,179 @@
-Overview
-This project presents an end-to-end hybrid quantum-classical machine learning pipeline for the early prediction of Primary Open-Angle Glaucoma (POAG) from microarray gene expression data. The pipeline integrates classical statistical genomics methods — differential gene expression analysis and supervised classification — with a Variational Quantum Circuit (VQC) implemented using PennyLane, benchmarking quantum against classical approaches on publicly available GEO transcriptomic datasets.
-The work addresses a clinically significant diagnostic gap: conventional glaucoma detection relies on structural and functional changes that are observable only after irreversible neurodegeneration has occurred. By operating at the transcriptomic level, this pipeline aims to identify molecular signatures that precede clinical symptom onset, contributing toward the broader goal of early, molecularly-informed glaucoma prediction.
+# Early Prediction of Glaucoma Using Gene Expression Data
+### A Comparative Study of Classical and Hybrid Quantum Machine Learning Models
 
-Table of Contents
+---
 
-Project Structure
-Datasets
-Pipeline Overview
-Methods Summary
-Results
-Dependencies
-How to Run
-Limitations
-Future Work
-Citation
+## Overview
 
+This project presents an end-to-end computational pipeline for the early prediction of Primary Open-Angle Glaucoma (POAG) from gene expression microarray data. It benchmarks three classical supervised classifiers — Logistic Regression, Random Forest, and Support Vector Machine — against a Hybrid Variational Quantum Classifier (VQC) implemented using PennyLane. The pipeline integrates multi-dataset preprocessing, differential gene expression (DEG) analysis, leakage-free within-fold feature selection, and comparative model evaluation with a focus on minority-class sensitivity under class-imbalanced conditions.
 
-Project Structure
-├── last_final_code.ipynb        # Main analysis notebook
-├── README.md                    # Project documentation
+---
 
-Note: The dataset files (GSE138125_series_matrix.txt and GSE27276_series_matrix.txt) are not included in this repository due to size constraints. Download instructions are provided in the Datasets section below.
+## Table of Contents
 
+- [Background](#background)
+- [Datasets](#datasets)
+- [Pipeline Overview](#pipeline-overview)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Results](#results)
+- [Limitations](#limitations)
+- [Future Work](#future-work)
+- [Project Structure](#project-structure)
+- [Citation](#citation)
 
-Datasets
-Two publicly available microarray gene expression datasets were sourced from the NCBI Gene Expression Omnibus (GEO):
-DatasetGEO AccessionPlatformSamplesPOAGControlGSE138125GSE138125GPL21827 (Agilent)844GSE27276GSE27276GPL2507 (Sentrix)36~8~28
-Download Instructions
+---
 
-Visit each GEO accession link above
-Under the Download section, download the Series Matrix File (_series_matrix.txt.gz)
-Extract the .gz file
-Place both .txt files in the /content/ directory if running on Google Colab, or update the file paths in the notebook accordingly
+## Background
 
+Glaucoma is a leading cause of irreversible blindness worldwide. Its most prevalent form, POAG, progresses silently — by the time clinical symptoms are detectable, significant and permanent neurodegeneration has already occurred. Conventional diagnostic tools (tonometry, OCT, perimetry) identify disease only after structural damage has reached a detectable threshold, making truly early intervention difficult.
 
-Pipeline Overview
+Gene expression profiling captures transcriptional dysregulation in disease-relevant tissues (trabecular meshwork, optic nerve head, retina) at a molecular level that precedes clinical detectability. This project explores whether machine learning models trained on microarray-derived gene expression signatures can enable early, pre-symptomatic POAG prediction — and whether a Hybrid Quantum Classifier offers advantages over classical baselines in this small, high-dimensional data regime.
+
+---
+
+## Datasets
+
+Both datasets are publicly available through the [NCBI Gene Expression Omnibus (GEO)](https://www.ncbi.nlm.nih.gov/geo/).
+
+| Dataset | GEO Accession | Platform | Samples | POAG | Control |
+|---|---|---|---|---|---|
+| GSE138125 | [GSE138125](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE138125) | GPL21827 (Agilent) | 8 | 4 | 4 |
+| GSE27276 | [GSE27276](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE27276) | GPL2507 (Sentrix) | 36 | ~8 | ~28 |
+
+> **Note:** The two datasets originate from different microarray platforms with no overlapping probe identifiers. Cross-platform integration was performed by positional concatenation after variance-based probe sorting. This is a known limitation — see [Limitations](#limitations).
+
+To download the data:
+1. Visit the GEO links above
+2. Download the `*_series_matrix.txt.gz` file for each dataset
+3. Decompress and place in your working directory (e.g., `/content/` if using Google Colab)
+
+---
+
+## Pipeline Overview
+
+```
 Raw GEO Data (GSE138125 + GSE27276)
-            │
-            ▼
-    Data Loading & Label Assignment
-            │
-            ▼
-    Numeric Cleaning & NaN Removal
-            │
-            ▼
-    Variance Sorting & Positional Merge
-            │
-            ▼
-    Log2(x+1) + Z-score Normalization
-            │
-            ▼
-    Differential Gene Expression (DEG)
-    Welch's t-test + BH FDR Correction
-            │
-            ▼
-    Volcano Plot Visualization
-            │
-            ├─────────────────────────────────┐
-            ▼                                 ▼
-  Classical ML (5-fold CV)         Hybrid VQC (3-fold CV)
-  ┌─────────────────────┐         ┌──────────────────────┐
-  │ Logistic Regression │         │ PCA → 4 components   │
-  │ Random Forest       │         │ AngleEmbedding (RX)  │
-  │ SVM (Linear)        │         │ StronglyEntangling   │
-  └─────────────────────┘         │ Layers (3 layers)    │
-            │                     │ Adam Optimizer       │
-            │                     └──────────────────────┘
-            │                                 │
-            └─────────────┬───────────────────┘
-                          ▼
-              Comparative Performance Report
-              (Accuracy + F1-Score)
+        │
+        ▼
+  Data Loading & Cleaning
+  (tab-sep parsing, NaN removal)
+        │
+        ▼
+  Variance-based Probe Sorting
+  + Positional Merge (44 samples × 61,024 probes)
+        │
+        ▼
+  Normalization
+  (log2(x+1) → Gene-wise Z-score)
+        │
+        ▼
+  Exploratory DEG Analysis
+  (Welch's t-test + BH FDR + Volcano Plot)
+        │
+        ▼
+  5-Fold Stratified Cross-Validation
+        │
+        ├──▶  Within-Fold DEG Feature Selection
+        │     (adj_p < 0.05, |logFC| > 1, fallback top-50)
+        │
+        ├──▶  Classical Models
+        │     (Logistic Regression, Random Forest, SVM)
+        │
+        └──▶  Hybrid VQC (PennyLane)
+              (PCA → 4 qubits → StronglyEntanglingLayers
+               → PauliZ expectation → Adam optimizer)
+                    │
+                    ▼
+             Comparative Evaluation
+             (Accuracy + F1-Score)
+```
 
-Methods Summary
-Preprocessing
+---
 
-Tab-separated loading with GEO metadata comment lines skipped
-Disease labels assigned manually for GSE138125 and programmatically inferred from column names for GSE27276
-Non-numeric values coerced to NaN; all-NaN rows dropped
-Zero common probe IDs found across platforms; datasets merged positionally after variance sorting and index reset
-Combined matrix: 61,024 probes × 44 samples
+## Requirements
 
-Normalization
+- Python 3.8+
+- numpy
+- pandas
+- matplotlib
+- scikit-learn
+- scipy
+- statsmodels
+- pennylane >= 0.39
 
-Log2(x + 1) transformation applied to stabilize variance
-Gene-wise Z-score normalization (mean-centering and standard deviation scaling per probe row)
+---
 
-Differential Expression Analysis
+## Installation
 
-Welch's two-sample t-test (equal_var=False) per probe
-logFC = mean(POAG) − mean(Control)
-Benjamini-Hochberg FDR correction for multiple comparisons
-Volcano plot generated with adj_p = 0.05 significance threshold
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/glaucoma-qml-classification.git
+cd glaucoma-qml-classification
 
-Feature Selection
+# Install dependencies
+pip install numpy pandas matplotlib scikit-learn scipy statsmodels pennylane
+```
 
-Performed strictly within each cross-validation fold on training data only (leakage-free)
-Selection criteria: adj_p < 0.05 AND |logFC| > 1
-Fallback: top 50 probes by adj_p when fewer than 10 pass the threshold
+Or if using Google Colab (recommended for PennyLane compatibility):
 
-Classical Models
-ModelConfigurationLogistic Regressionmax_iter=1000, sklearn defaultsRandom Forest100 estimators, random_state=42SVMLinear kernel, sklearn defaults
-Evaluated under 5-fold Stratified K-Fold Cross-Validation. Metrics: Accuracy and F1-score.
-Hybrid Variational Quantum Classifier
+```python
+!pip install pennylane statsmodels
+```
 
-Framework: PennyLane (default.qubit simulator)
-Dimensionality reduction: PCA to 4 components
-Feature scaling: Min-max normalization to [0, π]
-Circuit: 4 qubits, RX AngleEmbedding + StronglyEntanglingLayers (3 layers)
-Trainable parameters: 36 (weight shape: 3 × 4 × 3) + 1 bias
-Optimizer: Adam (stepsize=0.1, 30 iterations)
-Cost function: Mean squared error against {−1, +1} mapped labels
-Evaluated under 3-fold Stratified K-Fold Cross-Validation
+---
+
+## Usage
+
+1. Download the GEO series matrix files for GSE138125 and GSE27276 and place them in your working directory.
+
+2. Update the file paths in the notebook:
+```python
+df1 = pd.read_csv("/your/path/GSE138125_series_matrix.txt", sep="\t", comment="!", header=0)
+df2 = pd.read_csv("/your/path/GSE27276_series_matrix.txt", sep="\t", comment="!", header=0)
+```
+
+3. Run the notebook `last_final_code.ipynb` sequentially from top to bottom. Each section is modular:
+   - **Cells 1–9**: Data loading and metadata construction
+   - **Cells 10–14**: Normalization and exploratory DEG + Volcano Plot
+   - **Cells 15–18**: Train/test split with leakage-free DEG (exploratory)
+   - **Cells 19–23**: 5-fold CV with classical models
+   - **Cell 24**: Hybrid VQC training and evaluation
+   - **Cell 25**: Comparative bar chart visualization
+
+> The notebook was developed and tested on **Google Colab**. Running locally may require adjusting file paths and ensuring PennyLane is correctly installed.
+
+---
+
+## Results
+
+### Classical Models — 5-Fold Stratified Cross-Validation
+
+| Model | Mean Accuracy | Mean F1-Score |
+|---|---|---|
+| Logistic Regression | 1.0000 | 0.8000 |
+| SVM (Linear) | 1.0000 | 0.8000 |
+| Random Forest | 0.9778 | 0.7333 |
+
+### Hybrid VQC — 3-Fold Stratified Cross-Validation
+
+| Model | Mean Accuracy | Mean F1-Score |
+|---|---|---|
+| Hybrid VQC | 0.9111 | **0.8333** |
+
+### Key Observation
+
+The Hybrid VQC achieved a lower overall accuracy than classical models but a **higher F1-score**, indicating superior sensitivity to the minority POAG class. In a clinical context where false negatives (missed disease cases) carry greater consequence than false positives, F1-score is the more meaningful metric. The VQC's performance advantage on this metric — despite a simpler feature representation (4 PCA components, 4 qubits) — suggests potential value in quantum approaches for imbalanced biomedical classification tasks.
 
 
-Results
-Classical Classifiers (5-fold CV)
-ModelMean AccuracyMean F1-ScoreLogistic Regression1.00000.8000SVM (Linear)1.00000.8000Random Forest0.97780.7333
-Hybrid VQC vs. Best Classical Baseline (Random Forest, 3-fold CV)
-ModelMean AccuracyMean F1-ScoreRandom Forest0.97780.7333Hybrid VQC0.91110.8333
-The Hybrid VQC achieved a higher F1-score than all classical baselines, indicating superior sensitivity to the minority POAG class — the clinically critical outcome in disease prediction tasks. Classical models achieved higher raw accuracy, consistent with majority-class prediction bias in imbalanced datasets.
+## Acknowledgements
 
-Important: These results should be interpreted with caution. The cross-platform positional merge and small sample size introduce significant methodological constraints that qualify the biological interpretability of reported performance. See Limitations.
+- Gene expression data sourced from the [NCBI Gene Expression Omnibus (GEO)](https://www.ncbi.nlm.nih.gov/geo/)
+- Quantum circuit implementation powered by [PennyLane](https://pennylane.ai/) (Xanadu)
+- Classical ML components built with [scikit-learn](https://scikit-learn.org/)
+- Statistical testing via [scipy](https://scipy.org/) and [statsmodels](https://www.statsmodels.org/)
 
+---
 
-Dependencies
-Core Libraries
-numpy
-pandas
-matplotlib
-scipy
-statsmodels
-scikit-learn
-pennylane
-Install via pip
-bashpip install numpy pandas matplotlib scipy statsmodels scikit-learn pennylane
-Environment
-This notebook was developed and executed on Google Colab. It is recommended to run it there to avoid path and dependency configuration issues. If running locally, update all file paths from /content/ to your local directory.
-
-How to Run
-
-Clone this repository
-
-bashgit clone https://github.com/your-username/your-repo-name.git
-cd your-repo-name
-
-Download the datasets from GEO as described in the Datasets section and place them in the appropriate directory
-Open the notebook in Google Colab or Jupyter
-Update file paths in the data loading cells if running locally:
-
-python# Change this:
-df1 = pd.read_csv("/content/GSE138125_series_matrix.txt", ...)
-df2 = pd.read_csv("/content/GSE27276_series_matrix.txt", ...)
-
-# To this (example for local):
-df1 = pd.read_csv("./data/GSE138125_series_matrix.txt", ...)
-df2 = pd.read_csv("./data/GSE27276_series_matrix.txt", ...)
-
-Run all cells sequentially. The notebook is organized in the following order:
-
-Data loading and label assignment
-Cleaning and merging
-Normalization
-DEG analysis and volcano plot
-Classical ML cross-validation
-Hybrid VQC training and evaluation
-Comparative visualization
-
+*This project was developed as an academic research prototype. Results are not intended for clinical use.*
