@@ -18,8 +18,6 @@ This project presents an end-to-end computational pipeline for the early predict
 - [Installation](#installation)
 - [Usage](#usage)
 - [Results](#results)
-- [Limitations](#limitations)
-- [Future Work](#future-work)
 - [Project Structure](#project-structure)
 - [Citation](#citation)
 
